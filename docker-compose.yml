@@ -1,0 +1,30 @@
+services:
+  vite-dev:
+    container_name: gen-admin-react
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev -- --host
+    # Optional: depends_on to link to backend API
+    # depends_on:
+    #   - api
+
+  vite-prod:
+    container_name: vite-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    # Uncomment if using a custom Nginx config
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
