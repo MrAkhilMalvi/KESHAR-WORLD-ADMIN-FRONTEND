@@ -1,6 +1,6 @@
 import axios from "@/providers/axios/axiosInstance";
-import { VideoPayload, PresignedUrlPayload, Video } from "../types/video.types";
-import { AUTH_ENDPOINTS, VIDEO_ENDPOINTS } from "@/providers/api/api-config";
+import {  Video } from "../types/video.types";
+import { AUTH_ENDPOINTS } from "@/providers/api/api-config";
 
 
 

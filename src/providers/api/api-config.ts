@@ -31,6 +31,7 @@ export const AUTH_ENDPOINTS = {
     addVideos:`/courses/add/videos`,
     updateVideos: `/courses/update/videos`,
     deleteVideos: `/video/delete`,
+    uploadVideo: `/courses/videos/upload-direct`
   },
   products : {
     getProducts: `/products`,

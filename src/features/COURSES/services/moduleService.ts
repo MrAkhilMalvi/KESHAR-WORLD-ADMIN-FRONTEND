@@ -1,6 +1,5 @@
 import axios from "@/providers/axios/axiosInstance";
-import { ModulePayload } from "../types/module.types";
-import { AUTH_ENDPOINTS, MODULE_ENDPOINTS } from "@/providers/api/api-config";
+import { AUTH_ENDPOINTS,  } from "@/providers/api/api-config";
 
 
 
