@@ -1,5 +1,5 @@
 import axios from "@/providers/axios/axiosInstance";
-import {  Video } from "../types/video.types";
+import { VideoPayload, PresignedUrlPayload, Video } from "../types/video.types";
 import { AUTH_ENDPOINTS } from "@/providers/api/api-config";
 
 
@@ -54,3 +54,19 @@ export const deleteVideo = async (id: string) => {
     throw error.response?.data || error.message;
   }
 };
+
+export async function uploadToSignedUrl(file: File, signedUrl: string) {
+  const response = await fetch(signedUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,  // IMPORTANT
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error("Upload to signed URL failed");
+  }
+
+  return true;
+}

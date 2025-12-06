@@ -6,7 +6,18 @@ import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
 import { Label } from "@/shared/components/ui/label";
 import { Save, Loader2, Image as ImageIcon } from "lucide-react";
-import { addCourse, updateCourse } from "../services/courseService";
+
+import { addCourse, updateCourse, uploadDirect } from "../services/courseService";
+import { uploadToSignedUrl } from "../services/videoService";
+
+/* ───────────────────────────────────────────────
+   TEMP FIELDS USED ONLY DURING UPLOAD FOR NEW COURSE
+──────────────────────────────────────────────── */
+interface ExtendedCourse extends Course {
+  _thumbnailFile?: File;
+  _thumbnailFileName?: string;
+  _thumbnailContentType?: string;
+}
 
 interface Props {
   initialData: Course | null;
@@ -15,7 +26,12 @@ interface Props {
 
 const BasicInfoForm = ({ initialData, onSave }: Props) => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Course>({
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+
+  /* ───────────────────────────────────────────────
+     CLEAN INITIAL STATE — NO THUMBNAIL_URL, NO FILENAME, NO CONTENTTYPE
+  ─────────────────────────────────────────────── */
+  const [formData, setFormData] = useState<ExtendedCourse>({
     title: "",
     price: 0,
     description: "",
@@ -24,35 +40,119 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
     original_price: 0,
     badge: "",
     category: "",
-    thumbnail_url: "",
   });
 
+  // Load existing course into form
   useEffect(() => {
-    if (initialData) setFormData(initialData);
+    if (initialData) {
+      setFormData(initialData);
+    }
   }, [initialData]);
 
+  // Generic input change handler
   const handleChange = (e: any) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? parseFloat(value) : value
+      [name]: type === "number" ? parseFloat(value) : value,
     }));
   };
+
+  /* ───────────────────────────────────────────────
+     THUMBNAIL UPLOAD LOGIC
+  ─────────────────────────────────────────────── */
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // NEW COURSE → Store file temporarily (NO UPLOAD)
+    if (!initialData?.id) {
+      setFormData((prev) => ({
+        ...prev,
+        _thumbnailFile: file,
+        _thumbnailFileName: file.name,
+        _thumbnailContentType: file.type,
+      }));
+      return;
+    }
+
+    // EXISTING COURSE → upload immediately
+    try {
+      setUploadingThumb(true);
+
+      const { uploadUrl, objectKey } = await uploadDirect({
+        type: "course_thumbnail",
+        course_id: initialData.id,
+        file,
+      });
+
+      await uploadToSignedUrl(file, uploadUrl);
+
+      const updatedCourse = {
+        ...formData,
+        id: initialData.id,
+        thumbnail_url: objectKey,
+      };
+
+      await updateCourse(updatedCourse);
+      setFormData(updatedCourse);
+
+    } catch (err) {
+      console.error(err);
+      alert("Thumbnail upload failed.");
+    } finally {
+      setUploadingThumb(false);
+    }
+  };
+
+  /* ───────────────────────────────────────────────
+     FORM SUBMIT — CREATE OR UPDATE COURSE
+  ─────────────────────────────────────────────── */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      let res;
+      /* ───────────── UPDATE COURSE ───────────── */
       if (initialData?.id) {
-        // Update
-        res = await updateCourse({ ...formData, id: initialData.id });
-      } else {
-        // Create
-        res = await addCourse(formData);
+        const updated = await updateCourse({ ...formData, id: initialData.id });
+        onSave(updated);
+        setLoading(false);
+        return;
       }
-      // Combine response ID with form data
-      onSave({ ...formData, id: res.id || initialData?.id });
+
+      /* ───────────── NEW COURSE ───────────── */
+      const createResponse = await addCourse({
+        title: formData.title,
+        price: formData.price,
+        description: formData.description,
+        category: formData.category,
+        instructor: formData.instructor,
+        badge: formData.badge,
+        is_free: formData.is_free,
+        original_price: formData.original_price,
+
+        // required ONLY for signed URL generation
+        contentType: formData._thumbnailContentType,
+        fileName: formData._thumbnailFileName,
+      });
+
+      const { course_id, uploadUrl, objectKey } = createResponse;
+
+      // Upload thumbnail file to Cloudflare R2
+      if (formData._thumbnailFile) {
+        await uploadToSignedUrl(formData._thumbnailFile, uploadUrl);
+      }
+
+      // Save final course info
+      onSave({
+        ...formData,
+        id: course_id,
+        thumbnail_url: objectKey,
+      });
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -60,80 +160,97 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
     }
   };
 
+  /* ───────────────────────────────────────────────
+     UI RENDER
+  ─────────────────────────────────────────────── */
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Left Column: Form Fields */}
-      <div className="lg:col-span-2 space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-        
-        <div className="space-y-2">
+      
+      {/* LEFT SIDE — FORM FIELDS */}
+      <div className="lg:col-span-2 space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm">
+
+        <div>
           <Label>Course Title</Label>
-          <Input name="title" value={formData.title} onChange={handleChange} placeholder="e.g. Master React in 30 Days" required className="text-lg font-medium" />
+          <Input name="title" value={formData.title} onChange={handleChange} required />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <div className="space-y-2">
-             <Label>Category</Label>
-             <Input name="category" value={formData.category} onChange={handleChange} placeholder="e.g. Development" />
-           </div>
-           <div className="space-y-2">
-             <Label>Instructor Name</Label>
-             <Input name="instructor" value={formData.instructor} onChange={handleChange} />
-           </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Category</Label>
+            <Input name="category" value={formData.category} onChange={handleChange} />
+          </div>
+
+          <div>
+            <Label>Instructor</Label>
+            <Input name="instructor" value={formData.instructor} onChange={handleChange} />
+          </div>
         </div>
 
-        <div className="space-y-2">
+        <div>
           <Label>Description</Label>
-          <Textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="What will students learn?" />
+          <Textarea name="description" rows={5} value={formData.description} onChange={handleChange} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl">
-           <div className="space-y-2">
-             <Label>Price ($)</Label>
-             <Input type="number" name="price" value={formData.price} onChange={handleChange} disabled={formData.is_free} />
-           </div>
-           <div className="space-y-2">
-             <Label>Original Price ($)</Label>
-             <Input type="number" name="original_price" value={formData.original_price} onChange={handleChange} disabled={formData.is_free} />
-           </div>
-           <div className="flex items-center space-x-2 pt-4">
-              <Switch 
-                checked={formData.is_free} 
-                onCheckedChange={(checked) => setFormData(prev => ({...prev, is_free: checked}))} 
-              />
-              <Label>This is a Free Course</Label>
-           </div>
-           <div className="space-y-2">
-             <Label>Badge (Optional)</Label>
-             <Input name="badge" value={formData.badge} onChange={handleChange} placeholder="e.g. Bestseller" />
-           </div>
+        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+
+          <div>
+            <Label>Price</Label>
+            <Input type="number" name="price" value={formData.price} onChange={handleChange} disabled={formData.is_free} />
+          </div>
+
+          <div>
+            <Label>Original Price</Label>
+            <Input type="number" name="original_price" value={formData.original_price} onChange={handleChange} disabled={formData.is_free} />
+          </div>
+
+          <div className="flex items-center space-x-2 mt-2">
+            <Switch checked={formData.is_free} onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_free: checked }))} />
+            <Label>Free Course</Label>
+          </div>
+
+          <div>
+            <Label>Badge</Label>
+            <Input name="badge" value={formData.badge} onChange={handleChange} />
+          </div>
+
         </div>
       </div>
 
-      {/* Right Column: Thumbnail & Actions */}
+      {/* RIGHT — THUMBNAIL UPLOAD */}
       <div className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-           <Label className="mb-4 block">Thumbnail Preview</Label>
-           <div className="aspect-video w-full rounded-xl bg-gray-100 dark:bg-gray-900 overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center relative group">
-              {formData.thumbnail_url ? (
-                <img src={formData.thumbnail_url} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <div className="text-center p-4 text-muted-foreground">
-                  <ImageIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                  <span className="text-xs">No image provided</span>
-                </div>
-              )}
-           </div>
-           <div className="mt-4 space-y-2">
-             <Label>Thumbnail URL</Label>
-             <Input name="thumbnail_url" value={formData.thumbnail_url} onChange={handleChange} placeholder="https://..." />
-           </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm">
+          <Label>Thumbnail</Label>
+
+          <div className="aspect-video rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center">
+
+            {/* EXISTING THUMBNAIL */}
+            {formData.thumbnail_url ? (
+              <img src={formData.thumbnail_url} className="w-full h-full object-cover" />
+
+            ) : formData._thumbnailFile ? (
+              /* TEMP PREVIEW */
+              <img src={URL.createObjectURL(formData._thumbnailFile)} className="w-full h-full object-cover" />
+
+            ) : (
+              <div className="text-center text-gray-400">
+                <ImageIcon className="w-10 h-10 mx-auto opacity-50" />
+                <p className="text-xs">No thumbnail uploaded</p>
+              </div>
+            )}
+
+          </div>
+
+          <Input type="file" accept="image/*" onChange={handleThumbnailUpload} className="mt-4" />
+
+          {uploadingThumb && <p className="text-xs text-blue-500 mt-2">Uploading...</p>}
         </div>
 
-        <Button type="submit" className="w-full h-12 text-lg" disabled={loading}>
-          {loading ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 w-5 h-5"/>}
+        <Button type="submit" disabled={loading} className="w-full h-12 text-lg">
+          {loading ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
           Save Course Details
         </Button>
       </div>
+
     </form>
   );
 };

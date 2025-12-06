@@ -8,6 +8,9 @@ export interface Product {
   price: number;
   discount_price: number;
   is_free: boolean;
-  thumbnail_url: string;
+  qty: number;
+  contentType: string;
+  fileName: string;
+  thumbnail_url?: string;
   language: string;
 }

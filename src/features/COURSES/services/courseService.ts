@@ -1,5 +1,5 @@
 import axios from "@/providers/axios/axiosInstance";
-import { Course } from "../types/course.types";
+import { Course, UploadParams, UploadType } from "../types/course.types";
 import { AUTH_ENDPOINTS, } from "@/providers/api/api-config";
 
 
@@ -25,6 +25,8 @@ export const getAllCourses = async () => {
 export const updateCourse = async (data: Course) => {
   try {
     const response = await axios.post(AUTH_ENDPOINTS.courses.updateCourse, data);
+    console.log(response);
+    
     return response?.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
@@ -41,29 +43,35 @@ export const updateCourse = async (data: Course) => {
 // };
 
 
-export const uploadVideo = async (
-  moduleId: string,
-  video_title: string,
-  file: File
-) => {
-  if (!moduleId || !video_title || !file) {
-    throw new Error("Module ID, video title, and file are required");
-  }
 
+
+
+export const uploadDirect = async (params: UploadParams) => {
   try {
-    const formData = new FormData();
-    formData.append("module_id", moduleId);
-    formData.append("video_title", video_title);
-    formData.append("video", file); // 🔥 MUST MATCH multer.single('video')
+    const { type, file } = params;
 
+    const payload: any = {
+      type,
+      fileName: file.name,
+      contentType: file.type,
+    };
+
+    const keyMap: Record<UploadType, string[]> = {
+      course_thumbnail: ["course_id"],
+      product_thumbnail: ["product_id"],
+      video: ["module_id", "video_id"],
+      video_thumbnail: ["module_id", "video_id"],
+    };
+
+    keyMap[type].forEach((key) => {
+      // @ts-ignore
+      payload[key] = params[key];
+    });
+
+    // 🚀 Now send data EXACTLY like updateCourse()
     const response = await axios.post(
-      AUTH_ENDPOINTS.videos.uploadVideo, 
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
+      AUTH_ENDPOINTS.videos.uploadVideo,
+      payload
     );
 
     return response.data;
@@ -71,5 +79,7 @@ export const uploadVideo = async (
     throw error.response?.data || error.message;
   }
 };
+
+
 
 

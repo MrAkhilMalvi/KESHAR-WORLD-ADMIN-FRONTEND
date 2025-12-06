@@ -23,6 +23,9 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { DashboardData } from "../types/dashboard";
 
+
+
+
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,8 +169,8 @@ const Dashboard = () => {
                     Total Sales
                   </p>
                   <div className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    {stats.most_purchased_course.purchase_user_count}
-
+                  {stats.most_purchased_course.purchase_user_count}
+                   
                     <span className="text-lg text-gray-400 font-medium">
                       Students
                     </span>
@@ -351,7 +354,7 @@ const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
           <div>
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <div className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">
-              {value}
+            {value} 
             </div>
             <p className="text-xs text-gray-400 mt-1">{subtext}</p>
           </div>

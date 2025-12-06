@@ -33,6 +33,8 @@ const ProductList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const [limit] = useState(20);
+  const [offset] = useState(0);
 
   useEffect(() => {
     fetchProducts();
@@ -40,8 +42,8 @@ const ProductList = () => {
 
   const fetchProducts = async () => {
     try {
-      const data = await getAllProducts();
-      setProducts(Array.isArray(data) ? data : data.data || []);
+      const response = await getAllProducts(limit, offset);
+      setProducts(response.result);
     } catch (error) {
       toast.error("Failed to load products");
     } finally {
