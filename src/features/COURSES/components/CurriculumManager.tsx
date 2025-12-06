@@ -8,7 +8,7 @@ import {
 } from "@/shared/components/ui/accordion";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { PlusCircle, Edit2, PlayCircle, Clock } from "lucide-react";
+import { PlusCircle, Edit2, PlayCircle, Clock, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,15 @@ import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import toast from "react-hot-toast";
 import { Module } from "../types/module.types";
-import { addModule, getModules, updateModule } from "../services/moduleService";
+import {
+  addModule,
+  deleteModule,
+  getModules,
+  updateModule,
+} from "../services/moduleService";
 import {
   addVideos,
+  deleteVideo,
   getVideos,
   updateVideos,
   uploadToSignedUrl,
@@ -39,8 +45,8 @@ const CurriculumManager = ({ courseId }: Props) => {
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<Partial<Video>>({});
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [deletingModuleId, setDeletingModuleId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchModules();
@@ -60,6 +66,57 @@ const CurriculumManager = ({ courseId }: Props) => {
       setModules(modulesWithVideos.sort((a, b) => a.position - b.position));
     } catch (err) {
       toast.error("Failed to load modules");
+    }
+  };
+
+  const handleDeleteVideo = async (videoId: string) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this video?"
+    );
+    if (!confirmDelete) return;
+
+    const toastId = toast.loading("Deleting video...");
+    setDeletingVideoId(videoId);
+
+    try {
+      await deleteVideo(videoId);
+
+      // ✅ Remove video from UI state
+      setModules((prev) =>
+        prev.map((module) => ({
+          ...module,
+          videos: module.videos.filter((v) => v.video_id !== videoId),
+        }))
+      );
+
+      toast.success("Video deleted successfully", { id: toastId });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete video", { id: toastId });
+    } finally {
+      setDeletingVideoId(null);
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string) => {
+    const confirmDelete = window.confirm(
+      "Deleting this module will remove all videos inside it. Continue?"
+    );
+    if (!confirmDelete) return;
+
+    const toastId = toast.loading("Deleting module...");
+    setDeletingModuleId(moduleId);
+
+    try {
+      await deleteModule(moduleId);
+
+      // ✅ Remove module from UI
+      setModules((prev) => prev.filter((m) => m.module_id !== moduleId));
+
+      toast.success("Module deleted successfully", { id: toastId });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete module", { id: toastId });
+    } finally {
+      setDeletingModuleId(null);
     }
   };
 
@@ -213,18 +270,39 @@ const CurriculumManager = ({ courseId }: Props) => {
                 <AccordionTrigger className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-900/50">
                   <div className="flex items-center justify-between w-full pr-4">
                     <span className="font-semibold">{module.title}</span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrentModule(module);
-                        setIsModuleDialogOpen(true);
-                      }}
-                    >
-                      <Edit2 className="h-4 w-4 text-gray-500" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* EDIT MODULE */}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentModule(module);
+                          setIsModuleDialogOpen(true);
+                        }}
+                      >
+                        <Edit2 className="h-4 w-4 text-gray-500" />
+                      </Button>
+
+                      {/* DELETE MODULE */}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-red-500 hover:text-red-700"
+                        onClick={(e) => {
+                          e.stopPropagation(); // ✅ VERY IMPORTANT
+                          handleDeleteModule(module.module_id!);
+                        }}
+                        disabled={deletingModuleId === module.module_id}
+                      >
+                        {deletingModuleId === module.module_id ? (
+                          <Clock className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="bg-gray-50/50 dark:bg-gray-900/20 px-6 py-4 space-y-3">
@@ -242,17 +320,35 @@ const CurriculumManager = ({ courseId }: Props) => {
                           <Clock size={12} /> {video.video_duration} mins
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActiveModuleId(module.module_id!);
-                          setCurrentVideo(video);
-                          setIsVideoDialogOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {/* EDIT VIDEO */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setActiveModuleId(module.module_id!);
+                            setCurrentVideo(video);
+                            setIsVideoDialogOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+
+                        {/* DELETE VIDEO */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleDeleteVideo(video.video_id!)}
+                          disabled={deletingVideoId === video.video_id}
+                        >
+                          {deletingVideoId === video.video_id ? (
+                            <Clock className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   <Button

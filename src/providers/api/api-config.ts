@@ -18,26 +18,30 @@ export const AUTH_ENDPOINTS = {
     getAllCourse : `/courses/get/all_courses`,
     addCourse: `/courses/add`,
     updateCourse: `/courses/update`,
-    deleteCourse: `/courses/delete`,
+    deleteCourse: `/courses/delete/course`,
+    
   },
   modules: {
     getModules: `/courses/get/modules`,
     addModule:`/courses/add/modules`,
     updateModule: `/courses/update/modules`,
-    deleteModules: `/modules/delete`,
+    deleteModules: `/courses/delete/module`,
   },
   videos: {
     getVideos: `/courses/get/videos`,
     addVideos:`/courses/add/videos`,
     updateVideos: `/courses/update/videos`,
-    deleteVideos: `/video/delete`,
+    deleteVideos: `/courses/delete/videos`,
     uploadVideo: `/courses/videos/upload-direct`
   },
   products : {
     getProducts: `/products`,
+    getProductsImages: `/products/images`,
     addProducts: `/products/add`,
     updateProducts: `/products/update`,
-    deleteProducts: `/products/delete`
+    deleteProducts: `/products/delete`,
+    productImages: `/products/images/save`,
+    prodcutImagesDelete: `/products/images/delete`,
   }
 };
 

@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { Course } from "@/features/COURSES/types/course.types";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, Search, Edit3, MoreVertical, Loader2 } from "lucide-react";
+import { Plus, Search, Edit3, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import toast from "react-hot-toast";
-import { getAllCourses } from "../services/courseService";
+import { getAllCourses, deleteCourse } from "../services/courseService";
 
 const CourseList = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,15 +22,40 @@ const CourseList = () => {
   const fetchCourses = async () => {
     try {
       const response = await getAllCourses();
-
-      // Correct: data is already an array
       const courseList = response?.data;
-
       setCourses(Array.isArray(courseList) ? courseList : []);
     } catch (error) {
       toast.error("Failed to load courses");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId?: string) => {
+    if (!courseId) return;
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this course?"
+    );
+    if (!confirmDelete) return;
+
+    const toastId = toast.loading("Deleting course...");
+    setDeletingId(courseId);
+
+    try {
+      await deleteCourse(courseId);
+
+      // Remove from local state
+      setCourses((prev) => prev.filter((c) => c.id !== courseId));
+
+      toast.success("Course deleted successfully", { id: toastId });
+    } catch (error: any) {
+      console.error("Delete course error:", error);
+      toast.error(error?.message || "Failed to delete course", {
+        id: toastId,
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -98,7 +124,7 @@ const CourseList = () => {
                         : "bg-white/90 text-black"
                     }`}
                   >
-                    {course.is_free ? "FREE" : `$${course.price}`}
+                    {course.is_free ? "FREE" : `₹${course.price}`}
                   </span>
                 </div>
               </div>
@@ -120,11 +146,28 @@ const CourseList = () => {
                   <Button
                     variant="outline"
                     className="flex-1 hover:border-primary hover:text-primary"
-                    onClick={() =>
-                      navigate(`/courses/edit/${course.id}`)
-                    }
+                    onClick={() => navigate(`/courses/edit/${course.id}`)}
                   >
                     <Edit3 className="w-4 h-4 mr-2" /> Edit
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    disabled={deletingId === course.id}
+                    onClick={() => handleDeleteCourse(course.id)}
+                  >
+                    {deletingId === course.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

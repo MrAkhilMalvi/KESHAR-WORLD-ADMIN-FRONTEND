@@ -7,8 +7,15 @@ import { Switch } from "@/shared/components/ui/switch";
 import { Label } from "@/shared/components/ui/label";
 import { Save, Loader2, Image as ImageIcon } from "lucide-react";
 
-import { addCourse, updateCourse, uploadDirect } from "../services/courseService";
+import {
+  addCourse,
+  updateCourse,
+  uploadDirect,
+} from "../services/courseService";
 import { uploadToSignedUrl } from "../services/videoService";
+import toast from "react-hot-toast";
+import { useParams } from "react-router-dom";
+import { normalizeObjectKey } from "@/lib/normalizeObjectKey";
 
 /* ───────────────────────────────────────────────
    TEMP FIELDS USED ONLY DURING UPLOAD FOR NEW COURSE
@@ -27,11 +34,14 @@ interface Props {
 const BasicInfoForm = ({ initialData, onSave }: Props) => {
   const [loading, setLoading] = useState(false);
   const [uploadingThumb, setUploadingThumb] = useState(false);
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
 
   /* ───────────────────────────────────────────────
-     CLEAN INITIAL STATE — NO THUMBNAIL_URL, NO FILENAME, NO CONTENTTYPE
+     INITIAL EMPTY STATE
   ─────────────────────────────────────────────── */
   const [formData, setFormData] = useState<ExtendedCourse>({
+    id: undefined,
     title: "",
     price: 0,
     description: "",
@@ -42,14 +52,15 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
     category: "",
   });
 
-  // Load existing course into form
   useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    }
+    if (!initialData) return;
+
+    setFormData({
+      ...initialData,
+      thumbnail_url: normalizeObjectKey(initialData.thumbnail_url),
+    });
   }, [initialData]);
 
-  // Generic input change handler
   const handleChange = (e: any) => {
     const { name, value, type } = e.target;
     setFormData((prev) => ({
@@ -58,16 +69,14 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
     }));
   };
 
-  /* ───────────────────────────────────────────────
-     THUMBNAIL UPLOAD LOGIC
-  ─────────────────────────────────────────────── */
-
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleThumbnailUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // NEW COURSE → Store file temporarily (NO UPLOAD)
-    if (!initialData?.id) {
+    /* NEW COURSE — store only, do NOT upload */
+    if (!isEditMode) {
       setFormData((prev) => ({
         ...prev,
         _thumbnailFile: file,
@@ -77,53 +86,54 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
       return;
     }
 
-    // EXISTING COURSE → upload immediately
+    /* EDIT COURSE — upload immediately but NO updateCourse */
     try {
       setUploadingThumb(true);
 
+      const courseId = initialData?.id;
+      if (!courseId) return;
+
       const { uploadUrl, objectKey } = await uploadDirect({
         type: "course_thumbnail",
-        course_id: initialData.id,
+        course_id: courseId,
         file,
       });
 
       await uploadToSignedUrl(file, uploadUrl);
 
-      const updatedCourse = {
-        ...formData,
-        id: initialData.id,
+      setFormData((prev) => ({
+        ...prev,
         thumbnail_url: objectKey,
-      };
+        _thumbnailFile: undefined,
+      }));
 
-      await updateCourse(updatedCourse);
-      setFormData(updatedCourse);
-
+      toast.success("Thumbnail uploaded!");
     } catch (err) {
       console.error(err);
-      alert("Thumbnail upload failed.");
+      toast.error("Thumbnail upload failed");
     } finally {
       setUploadingThumb(false);
     }
   };
-
-  /* ───────────────────────────────────────────────
-     FORM SUBMIT — CREATE OR UPDATE COURSE
-  ─────────────────────────────────────────────── */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      /* ───────────── UPDATE COURSE ───────────── */
-      if (initialData?.id) {
-        const updated = await updateCourse({ ...formData, id: initialData.id });
+      /* ───── UPDATE COURSE ───── */
+      if (isEditMode && initialData?.id) {
+        const updated = await updateCourse({
+          ...formData,
+          id: initialData.id,
+          thumbnail_url: formData.thumbnail_url,
+        });
+
         onSave(updated);
-        setLoading(false);
         return;
       }
 
-      /* ───────────── NEW COURSE ───────────── */
+      /* ───── CREATE NEW COURSE ───── */
       const createResponse = await addCourse({
         title: formData.title,
         price: formData.price,
@@ -134,123 +144,171 @@ const BasicInfoForm = ({ initialData, onSave }: Props) => {
         is_free: formData.is_free,
         original_price: formData.original_price,
 
-        // required ONLY for signed URL generation
+        // required ONLY for signed upload URL
         contentType: formData._thumbnailContentType,
         fileName: formData._thumbnailFileName,
       });
 
-      const { course_id, uploadUrl, objectKey } = createResponse;
+      const { course_id, objectKey } = createResponse;
 
-      // Upload thumbnail file to Cloudflare R2
+      // Upload thumbnail to Cloudflare R2
       if (formData._thumbnailFile) {
-        await uploadToSignedUrl(formData._thumbnailFile, uploadUrl);
+        await uploadToSignedUrl(formData._thumbnailFile, objectKey);
       }
 
-      // Save final course info
       onSave({
         ...formData,
         id: course_id,
         thumbnail_url: objectKey,
       });
-
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ───────────────────────────────────────────────
-     UI RENDER
-  ─────────────────────────────────────────────── */
+  /* ─────────────────────────────────────────────── */
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      
-      {/* LEFT SIDE — FORM FIELDS */}
+    <form
+      onSubmit={handleSubmit}
+      className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+    >
+      {/* LEFT SIDE — FORM */}
       <div className="lg:col-span-2 space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm">
-
         <div>
           <Label>Course Title</Label>
-          <Input name="title" value={formData.title} onChange={handleChange} required />
+          <Input
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            required
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Category</Label>
-            <Input name="category" value={formData.category} onChange={handleChange} />
+            <Input
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+            />
           </div>
 
           <div>
             <Label>Instructor</Label>
-            <Input name="instructor" value={formData.instructor} onChange={handleChange} />
+            <Input
+              name="instructor"
+              value={formData.instructor}
+              onChange={handleChange}
+            />
           </div>
         </div>
 
         <div>
           <Label>Description</Label>
-          <Textarea name="description" rows={5} value={formData.description} onChange={handleChange} />
+          <Textarea
+            name="description"
+            rows={5}
+            value={formData.description}
+            onChange={handleChange}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-
           <div>
             <Label>Price</Label>
-            <Input type="number" name="price" value={formData.price} onChange={handleChange} disabled={formData.is_free} />
+            <Input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              disabled={formData.is_free}
+            />
           </div>
 
           <div>
             <Label>Original Price</Label>
-            <Input type="number" name="original_price" value={formData.original_price} onChange={handleChange} disabled={formData.is_free} />
+            <Input
+              type="number"
+              name="original_price"
+              value={formData.original_price}
+              onChange={handleChange}
+              disabled={formData.is_free}
+            />
           </div>
 
           <div className="flex items-center space-x-2 mt-2">
-            <Switch checked={formData.is_free} onCheckedChange={(checked) => setFormData((p) => ({ ...p, is_free: checked }))} />
+            <Switch
+              checked={formData.is_free}
+              onCheckedChange={(checked) =>
+                setFormData((p) => ({ ...p, is_free: checked }))
+              }
+            />
             <Label>Free Course</Label>
           </div>
 
           <div>
             <Label>Badge</Label>
-            <Input name="badge" value={formData.badge} onChange={handleChange} />
+            <Input
+              name="badge"
+              value={formData.badge}
+              onChange={handleChange}
+            />
           </div>
-
         </div>
       </div>
 
-      {/* RIGHT — THUMBNAIL UPLOAD */}
+      {/* RIGHT SIDE — THUMBNAIL */}
       <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border shadow-sm">
           <Label>Thumbnail</Label>
 
           <div className="aspect-video rounded-xl border-2 border-dashed overflow-hidden flex items-center justify-center">
-
-            {/* EXISTING THUMBNAIL */}
             {formData.thumbnail_url ? (
-              <img src={formData.thumbnail_url} className="w-full h-full object-cover" />
-
+              <img
+                src={formData.thumbnail_url}
+                className="w-full h-full object-cover"
+              />
             ) : formData._thumbnailFile ? (
-              /* TEMP PREVIEW */
-              <img src={URL.createObjectURL(formData._thumbnailFile)} className="w-full h-full object-cover" />
-
+              <img
+                src={URL.createObjectURL(formData._thumbnailFile)}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="text-center text-gray-400">
                 <ImageIcon className="w-10 h-10 mx-auto opacity-50" />
                 <p className="text-xs">No thumbnail uploaded</p>
               </div>
             )}
-
           </div>
 
-          <Input type="file" accept="image/*" onChange={handleThumbnailUpload} className="mt-4" />
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={handleThumbnailUpload}
+            className="mt-4"
+          />
 
-          {uploadingThumb && <p className="text-xs text-blue-500 mt-2">Uploading...</p>}
+          {uploadingThumb && (
+            <p className="text-xs text-blue-500 mt-2">Uploading...</p>
+          )}
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full h-12 text-lg">
-          {loading ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 text-lg"
+        >
+          {loading ? (
+            <Loader2 className="animate-spin mr-2" />
+          ) : (
+            <Save className="mr-2" />
+          )}
           Save Course Details
         </Button>
       </div>
-
     </form>
   );
 };
