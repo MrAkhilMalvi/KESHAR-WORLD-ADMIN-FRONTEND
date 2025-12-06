@@ -1,6 +1,6 @@
 import axios from "@/providers/axios/axiosInstance";
 import { AUTH_ENDPOINTS, } from "@/providers/api/api-config";
-import { Product } from "../types/product.type";
+import { GalleryItem, Product,  ProductImagesPayload } from "../types/product.type";
 
 
 
@@ -43,3 +43,31 @@ export const deleteProducts = async (id: string | number) => {
     throw error.response?.data || error.message;
   }
 };
+
+export const getProductImages = async (product_id: string) => {
+  try {
+    const response = await axios.post(AUTH_ENDPOINTS.products.getProductsImages, { product_id });
+    return response?.data;
+  } catch (error: any) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const productImagesUpload = async (payload:GalleryItem) => {
+  try {
+    const response = await axios.post(AUTH_ENDPOINTS.products.productImages, payload);
+    return response?.data;
+  } catch (error: any) {
+    throw error.response?.data || error.message;
+  }
+};
+
+export const productImagesDelete = async (id: string) => {
+  try {
+    const response = await axios.post(AUTH_ENDPOINTS.products.prodcutImagesDelete, {id});
+    return response?.data;
+  } catch (error: any) {
+    throw error.response?.data || error.message;
+  }
+};
+

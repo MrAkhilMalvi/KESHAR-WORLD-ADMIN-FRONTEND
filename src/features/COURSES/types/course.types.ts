@@ -36,7 +36,9 @@ export type UploadType =
   | "course_thumbnail"
   | "product_thumbnail"
   | "video"
-  | "video_thumbnail";
+  | "video_thumbnail"
+  | "product_images"
+  ;
 
 export interface UploadParamsBase {
   type: UploadType;
@@ -50,6 +52,10 @@ export interface CourseThumbnailParams extends UploadParamsBase {
 
 export interface ProductThumbnailParams extends UploadParamsBase {
   type: "product_thumbnail";
+  product_id: string;
+}
+export interface ProductImagesParams extends UploadParamsBase {
+  type: "product_images";
   product_id: string;
 }
 
@@ -69,4 +75,5 @@ export type UploadParams =
   | CourseThumbnailParams
   | ProductThumbnailParams
   | VideoParams
-  | VideoThumbnailParams;
+  | VideoThumbnailParams
+  | ProductImagesParams;

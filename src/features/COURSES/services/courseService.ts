@@ -33,14 +33,14 @@ export const updateCourse = async (data: Course) => {
   }
 };
 
-// export const deleteCourse = async (id: string) => {
-//   try {
-//     const response = await axios.delete(AUTH_ENDPOINTS.courses.deleteCourse);
-//     return response?.data;
-//   } catch (error: any) {
-//     throw error.response?.data || error.message;
-//   }
-// };
+export const deleteCourse = async (course_id: string) => {
+  try {
+    const response = await axios.post(AUTH_ENDPOINTS.courses.deleteCourse, { course_id });
+    return response?.data;
+  } catch (error: any) {
+    throw error.response?.data || error.message;
+  }
+};
 
 
 
@@ -61,6 +61,7 @@ export const uploadDirect = async (params: UploadParams) => {
       product_thumbnail: ["product_id"],
       video: ["module_id", "video_id"],
       video_thumbnail: ["module_id", "video_id"],
+      product_images: ["product_id"],
     };
 
     keyMap[type].forEach((key) => {

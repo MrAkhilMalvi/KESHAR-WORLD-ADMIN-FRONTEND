@@ -13,6 +13,7 @@ import { ArrowLeft, Layers, Video } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import toast from "react-hot-toast";
 import { getAllCourses } from "../services/courseService";
+import { deleteVideo } from "../services/videoService";
 
 const CourseManager = () => {
   const { id } = useParams(); // id
@@ -20,7 +21,6 @@ const CourseManager = () => {
   const [activeTab, setActiveTab] = useState("basic");
   const [courseData, setCourseData] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
   // Load existing data if in Edit Mode
   useEffect(() => {
     if (id) {
@@ -54,6 +54,8 @@ const CourseManager = () => {
     setActiveTab("curriculum");
     toast.success("Details saved. You can now add modules.");
   };
+
+ 
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">

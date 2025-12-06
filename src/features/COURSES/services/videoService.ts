@@ -1,5 +1,5 @@
 import axios from "@/providers/axios/axiosInstance";
-import { VideoPayload, PresignedUrlPayload, Video } from "../types/video.types";
+import {  Video } from "../types/video.types";
 import { AUTH_ENDPOINTS } from "@/providers/api/api-config";
 
 
@@ -46,9 +46,9 @@ export const updateVideos = async (videoId: string, video: Video) => {
   }
 };
 
-export const deleteVideo = async (id: string) => {
+export const deleteVideo = async (video_id: string) => {
   try {
-    const response = await axios.delete(AUTH_ENDPOINTS.videos.deleteVideos);
+    const response = await axios.post(AUTH_ENDPOINTS.videos.deleteVideos, { video_id });
     return response?.data;
   } catch (error: any) {
     throw error.response?.data || error.message;
@@ -59,7 +59,7 @@ export async function uploadToSignedUrl(file: File, signedUrl: string) {
   const response = await fetch(signedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type,  // IMPORTANT
+      "Content-Type": file.type,  
     },
     body: file,
   });
