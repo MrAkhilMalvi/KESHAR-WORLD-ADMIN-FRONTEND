@@ -5,9 +5,12 @@ import { Product } from "../types/product.type";
 
 
 
-export const getAllProducts = async () => {
+export const getAllProducts = async (limit: number, offset: number) => {
   try {
-    const response = await axios.get(AUTH_ENDPOINTS.products.getProducts);
+    const response = await axios.post(AUTH_ENDPOINTS.products.getProducts, {
+      limit,
+      offset,
+    });
     return response?.data;
   } catch (error: any) {
     throw error.response?.data || error.message;

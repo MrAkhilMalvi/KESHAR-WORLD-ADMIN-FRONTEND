@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Course } from "@/features/COURSES/types/course.types";
+import  { Course } from "@/features/COURSES/types/course.types";
 import BasicInfoForm from "../components/BasicForm";
 import CurriculumManager from "../components/CurriculumManager";
 import {

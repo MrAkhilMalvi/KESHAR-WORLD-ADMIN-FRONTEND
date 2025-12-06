@@ -25,25 +25,6 @@ import { DashboardData } from "../types/dashboard";
 
 
 
-// --- Simple Animated Counter Component ---
-const CountUp = ({ to }: { to: number }) => {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let start = 0;
-    const duration = 1500; // ms
-    const stepTime = Math.abs(Math.floor(duration / to));
-    const timer = setInterval(
-      () => {
-        start += 1;
-        setCount(start);
-        if (start === to) clearInterval(timer);
-      },
-      stepTime > 0 ? stepTime : 10
-    ); // Prevent divide by zero issues
-    return () => clearInterval(timer);
-  }, [to]);
-  return <>{count}</>;
-};
 
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardData | null>(null);
@@ -188,9 +169,8 @@ const Dashboard = () => {
                     Total Sales
                   </p>
                   <div className="text-4xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <CountUp
-                      to={stats.most_purchased_course.purchase_user_count}
-                    />
+                  {stats.most_purchased_course.purchase_user_count}
+                   
                     <span className="text-lg text-gray-400 font-medium">
                       Students
                     </span>
@@ -223,7 +203,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold mt-2 mb-4">
-                ₹<CountUp to={stats.average_purchase_price} />
+                ₹{stats.average_purchase_price}
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 This is the average revenue generated per course sale across the
@@ -374,7 +354,7 @@ const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
           <div>
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <div className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">
-              <CountUp to={value} />
+            {value} 
             </div>
             <p className="text-xs text-gray-400 mt-1">{subtext}</p>
           </div>

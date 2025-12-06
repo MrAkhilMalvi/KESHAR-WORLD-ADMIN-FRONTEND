@@ -29,7 +29,8 @@ export interface VideoResponse {
 export interface Video {
   video_id?: string;
   title: string;
-  url: string;
+  objectKey: string;
+  thumbnail_url?: string; 
   video_duration: string;
   video_description: string;
   video_position: number;
